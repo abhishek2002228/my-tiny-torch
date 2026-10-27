@@ -144,3 +144,22 @@ class NumPyBackend:
             array, axis=axis,
             keepdims=keepdims,
         ))
+
+    # Memory Profiling
+
+    def nbytes(self, storage):
+        return storage.nbytes
+
+    def memory_info(self, storage):
+        owner = storage
+
+        while isinstance(owner.base, np.ndarray):
+            owner = owner.base
+
+        return {
+            "logical_bytes": storage.nbytes,
+            "backing_bytes": (
+                owner.nbytes if owner.flags.owndata else None
+            ),
+            "is_view": storage.base is not None,
+        }

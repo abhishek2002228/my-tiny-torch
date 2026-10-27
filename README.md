@@ -2,6 +2,8 @@
 
 A Python tensor library built from scratch, inspired by [TinyTorch](https://mlsysbook.ai/tinytorch).
 
+NOTE: THIS IS A WORK IN PROGRESS.
+
 The current API supports eager CPU float32 tensors, arithmetic, matrix multiplication,
 indexing, shared views, copies, stacking, and reductions. Operations can record their
 input connections, but **backward calculations and GPU execution are not implemented**.
@@ -15,14 +17,22 @@ python3 setup_env.py
 ```
 
 This creates `.venv` if needed, installs the library in editable mode with test,
-build, and notebook-kernel dependencies, and registers a kernel inside that
-environment. An internet connection is needed to download missing dependencies.
+build, and notebook-kernel dependencies, and registers **My Tiny Torch (.venv)**
+in your user Jupyter kernel directory, pointing to this checkout's `.venv`. An internet connection is needed to download missing dependencies.
 You can rerun it to reuse the environment. It does not activate your terminal.
 
-Open `examples/my_tiny_torch_playground.ipynb`. In VS Code's kernel picker select
-**Python Environments → this repository's `.venv/bin/python`** (on Windows,
-`.venv\\Scripts\\python.exe`). The setup script prints the exact path.
-The kernel may also appear as **My Tiny Torch (.venv)**.
+Open `examples/my_tiny_torch_playground.ipynb`. Its metadata references the
+`my-tiny-torch` kernel. If VS Code asks you to select a kernel, choose
+**Select Another Kernel → Jupyter Kernel → My Tiny Torch (.venv)**.
+If VS Code was already open during setup, run **Developer: Reload Window** to
+refresh discovery. Automatic kernel selection depends on the editor; a one-time
+selection may still be required.
+
+Run setup on the same machine where your notebook kernel runs. Rerun setup after
+moving the checkout or recreating `.venv`: the kernel registration contains its
+absolute interpreter path. Running setup from another checkout updates the same
+user kernel name to that checkout. The `.venv` and user registration are local
+setup artifacts, not files to commit.
 
 ## Install and use
 

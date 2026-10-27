@@ -255,3 +255,13 @@ class Tensor:
     def max(self, axis=None, keepdims: bool = False) -> Tensor:
         """Maximum values over selected axes; return values without an index tensor."""
         return Max.apply(self, axis=axis, keepdims=keepdims)
+
+
+    # 5. Memory Profiling 
+
+    @property
+    def nbytes(self):
+        return self._backend.nbytes(self._storage)
+
+    def memory_info(self):
+        return self._backend.memory_info(self._storage)    

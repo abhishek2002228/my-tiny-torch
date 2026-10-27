@@ -31,18 +31,22 @@ def main():
         [str(python), "-m", "pip", "install", "-e", f"{project}[dev,notebook]"],
         check=True,
     )
-    # Keep kernel registration inside this environment, not in user-wide settings.
+    # Register in the user Jupyter location so other Jupyter environments can discover it.
+    # Rerunning setup updates this name to the current checkout and interpreter.
     subprocess.run(
-        [str(python), "-m", "ipykernel", "install", "--sys-prefix",
+        [str(python), "-m", "ipykernel", "install", "--user",
          "--name", "my-tiny-torch", "--display-name", "My Tiny Torch (.venv)"],
         check=True,
     )
 
     print("\nSetup complete.")
     print("Open examples/my_tiny_torch_playground.ipynb in VS Code.")
-    print("In the kernel picker choose Python Environments, then this interpreter:")
+    print("In the notebook kernel picker choose Select Another Kernel, then")
+    print("Jupyter Kernel -> My Tiny Torch (.venv). Select it once if prompted.")
+    print("If VS Code was already open, run Developer: Reload Window to refresh discovery.")
+    print("The kernel uses this interpreter:")
     print(python)
-    print("You may also see the kernel named 'My Tiny Torch (.venv)'.")
+    print("Rerun setup after moving the checkout or recreating .venv.")
     print("Restart the notebook kernel after editing imported library code.")
 
 
