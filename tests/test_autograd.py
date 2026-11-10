@@ -78,6 +78,20 @@ def test_copying_construction_breaks_history_but_clone_and_stack_retain_it():
     assert not np.shares_memory(stack._storage, source._storage)
 
 
+def test_dag_viz_handles_deep_shared_graph_without_recursion():
+    x = Tensor(1, requires_grad=True)
+    result = x * x
+    for _ in range(1200):
+        result = result + 1
+
+    svg = result.dag_viz()
+    assert svg is not None
+    assert svg.startswith("<svg ")
+    assert svg.count(">Mul</text>") == 1
+    assert svg.count(">Add</text>") == 1200
+    assert svg.count(">T0  ()</text>") == 1
+
+
 def test_graph_connections_are_retained_through_a_chain():
     x = Tensor([1, 2], requires_grad=True)
     scaled = 2 * x

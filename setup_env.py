@@ -31,6 +31,15 @@ def main():
         [str(python), "-m", "pip", "install", "-e", f"{project}[dev,notebook]"],
         check=True,
     )
+    print("Checking playground libraries in the notebook environment...", flush=True)
+    subprocess.run(
+        [str(python), "-c",
+         "import torch; from tinytorch import Tensor; "
+         "assert (Tensor([1, 2]) + 1).shape == (2,); "
+         "assert (torch.tensor([1, 2]) + 1).tolist() == [2, 3]; "
+         "print('My TinyTorch and PyTorch imports verified; PyTorch', torch.__version__)"],
+        check=True,
+    )
     # Register in the user Jupyter location so other Jupyter environments can discover it.
     # Rerunning setup updates this name to the current checkout and interpreter.
     subprocess.run(
@@ -40,7 +49,7 @@ def main():
     )
 
     print("\nSetup complete.")
-    print("Open examples/my_tiny_torch_playground.ipynb in VS Code.")
+    print("Open playground notebook in VS Code;")
     print("In the notebook kernel picker choose Select Another Kernel, then")
     print("Jupyter Kernel -> My Tiny Torch (.venv). Select it once if prompted.")
     print("If VS Code was already open, run Developer: Reload Window to refresh discovery.")

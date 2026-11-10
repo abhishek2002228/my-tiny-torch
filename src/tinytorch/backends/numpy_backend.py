@@ -145,6 +145,102 @@ class NumPyBackend:
             keepdims=keepdims,
         ))
 
+    def ones_like(self, array):
+        return np.ones_like(array)
+
+    def zeros_like(self, array):
+        return np.zeros_like(array)
+
+    def scalar_like(self, value, array):
+        """Represent a Python scalar in a tensor operand's storage dtype."""
+        return np.asarray(value, dtype=array.dtype)
+
+    def broadcast_reduced_grad(self, grad, shape, *, axis=None, keepdims=False):
+        """Undo a forward pass reduction by inserting removed axes and broadcasting."""
+        if axis is not None and not keepdims and len(shape):
+            axes = (axis,) if isinstance(axis, (int, np.integer)) else tuple(axis)
+            axes = tuple(item % len(shape) for item in axes)
+            grad = np.expand_dims(grad, axis=axes)
+        return self.expand(grad, shape=shape)
+
+    def reduction_count(self, shape, *, axis=None):
+        """Counts - How many values did the forward pass reduce ?"""
+        if not shape:
+            return 1
+        if axis is None:
+            return int(np.prod(shape))
+        axes = (axis,) if isinstance(axis, (int, np.integer)) else tuple(axis)
+        count = 1
+        for item in axes:
+            count *= shape[item]
+        return count
+
+    def max_grad(self, array, maxima, grad, *, axis=None, keepdims=False):
+        """Split a maximum's gradient equally among tied maxima."""
+        maxima = self.broadcast_reduced_grad(
+            maxima, array.shape, axis=axis, keepdims=keepdims
+        )
+        mask = array == maxima
+        counts = self.sum(mask, axis=axis, keepdims=True).astype(array.dtype, copy=False)
+        expanded = self.broadcast_reduced_grad(
+            grad, array.shape, axis=axis, keepdims=keepdims
+        )
+        return self.div(self.mul(expanded, mask), counts)
+
+    def scatter_add(self, shape, key, grad, *, dtype):
+        """Reverse indexing, adding repeated advanced-index contributions."""
+        result = np.zeros(shape, dtype=_NUMPY_DTYPES[dtype])
+        np.add.at(result, key, grad)
+        return result
+
+    def unstack(self, grad, *, axis):
+        moved = np.moveaxis(grad, axis, 0)
+        return tuple(
+            moved[index:index + 1].reshape(moved.shape[1:])
+            for index in range(moved.shape[0])
+        )
+
+    def matmul_grad(self, lhs, rhs, grad, *, need_lhs=True, need_rhs=True):
+        """Reverse NumPy matmul's vector promotion and batch broadcasting."""
+        left_vector, right_vector = lhs.ndim == 1, rhs.ndim == 1
+        left = lhs[np.newaxis, :] if left_vector else lhs
+        right = rhs[:, np.newaxis] if right_vector else rhs
+        if left_vector and right_vector:
+            grad = self.reshape(grad, shape=(1, 1))
+        elif left_vector:
+            grad = self.reshape(grad, shape=grad.shape[:-1] + (1, grad.shape[-1]))
+        elif right_vector:
+            grad = self.reshape(grad, shape=grad.shape + (1,))
+
+        left_grad = right_grad = None
+        if need_lhs:
+            left_grad = self.matmul(grad, np.swapaxes(right, -1, -2))
+            if left_vector:
+                left_grad = np.squeeze(left_grad, axis=-2)
+            left_grad = self.reduce_broadcasted_grad(left_grad, lhs.shape)
+        if need_rhs:
+            right_grad = self.matmul(np.swapaxes(left, -1, -2), grad)
+            if right_vector:
+                right_grad = np.squeeze(right_grad, axis=-1)
+            right_grad = self.reduce_broadcasted_grad(right_grad, rhs.shape)
+        return left_grad, right_grad
+
+
+    def reduce_broadcasted_grad(self, grad, shape):
+        """Reduce gradients for tensors which were broadcasted in the forward pass"""
+        # Sum over leading dimensions added by broadcasting.
+        while grad.ndim > len(shape):
+            grad = self.sum(grad, axis=0)
+
+        # Sum over dimensions expanded from size 1.
+        for axis, size in enumerate(shape):
+            if size == 1 and grad.shape[axis] != 1:
+                grad = self.sum(grad, axis=axis, keepdims=True)
+
+        if grad.shape != shape:
+            raise ValueError(f"Cannot reduce gradient of shape {grad.shape} to {shape}")
+        
+        return grad
     # Memory Profiling
 
     def nbytes(self, storage):

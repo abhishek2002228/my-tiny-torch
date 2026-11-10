@@ -41,6 +41,9 @@ class Tensor:
         self._device = device
         self._requires_grad = requires_grad
         self._ctx = None  # Context for autograd; set when this tensor is the output of an operation.
+        self._grad = None # The gradient of this tensor computed by autograd.
+        self._graph_released = False
+        self._retain_grad = False
 
         # create fresh storage using backend
         if isinstance(data, Tensor):
@@ -81,6 +84,9 @@ class Tensor:
         tensor._device = device
         tensor._requires_grad = requires_grad
         tensor._ctx = None  # Context for autograd; set when this tensor is the output of an operation.
+        tensor._grad = None # The gradient of this tensor computed by autograd.
+        tensor._graph_released = False
+        tensor._retain_grad = False
         return tensor
 
     @classmethod
@@ -88,13 +94,18 @@ class Tensor:
         """Stack equally shaped tensors along a new axis into independent storage.
 
         Unlike constructor stacking, this operation will retain input gradient
-        connections when tracking is enabled. Its backward calculation remains
-        unimplemented.
+        connections when tracking is enabled. Backward distributes slices of
+        the incoming gradient to the original inputs.
         """
         if not tensors or not all(isinstance(t, Tensor) for t in tensors):
             raise TypeError("stack requires a nonempty sequence of Tensors.")
         return Stack.apply(*tensors, axis=axis)
 
+    @property 
+    def grad(self) -> Tensor | None:
+        """Gradient computed by autograd, or None if unavailable."""
+        return self._grad
+    
     @property
     def shape(self) -> tuple[int, ...]:
         """Sizes of the backing storage's dimensions."""
@@ -265,3 +276,20 @@ class Tensor:
 
     def memory_info(self):
         return self._backend.memory_info(self._storage)    
+
+    # 6. Autograd
+    def backward(self, retain_graph=False):
+        from .autograd import autograd_engine
+        autograd_engine(self, retain_graph=retain_graph)
+
+    def dag_viz(self) -> str | None:
+        """Display the graph in a notebook; return SVG text outside IPython."""
+        from .autograd import dag_viz
+        return dag_viz(self)
+
+    def retain_grad(self):
+        """Retain the gradient of this tensor after backward pass."""
+        if not self.requires_grad:
+            raise RuntimeError("retain_grad requires a tensor with requires_grad=True.")
+        self._retain_grad = True
+        

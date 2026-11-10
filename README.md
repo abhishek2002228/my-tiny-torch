@@ -17,9 +17,12 @@ python3 setup_env.py
 ```
 
 This creates `.venv` if needed, installs the library in editable mode with test,
-build, and notebook-kernel dependencies, and registers **My Tiny Torch (.venv)**
+build, notebook-kernel, and PyTorch dependencies, and registers **My Tiny Torch (.venv)**
 in your user Jupyter kernel directory, pointing to this checkout's `.venv`. An internet connection is needed to download missing dependencies.
-You can rerun it to reuse the environment. It does not activate your terminal.
+Setup verifies that both `tinytorch` and `torch` import and run in that environment.
+Both playgrounds use the same kernel; no notebook `%pip install` cells are needed.
+PyTorch is part of the optional notebook extra, not the core Tensor library dependency.
+You can rerun setup after pulling dependency changes to reuse the environment.
 
 Open `examples/my_tiny_torch_playground.ipynb`. Its metadata references the
 `my-tiny-torch` kernel. If VS Code asks you to select a kernel, choose
