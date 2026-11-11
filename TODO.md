@@ -1,7 +1,6 @@
 
 ## Next steps
 
-- verify autograd
 - Optimize tinytorch
     - optimize the numpy backend allocations to improve memory usage. 
 - Add activation functions and neural network layers with working backward rules.

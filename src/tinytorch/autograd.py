@@ -15,14 +15,11 @@ if TYPE_CHECKING:
 
 
 class Function(ABC):
-    """Base class for ops
-    Subclasses implement forward using a backend selected from input devices.
-    Each call to apply creates
-    a separate operation instance, so forward can save values or shapes on self
-    for that particular call's backward calculation.
+    """Base class for tensor operations.
 
-    This class records gradient connections; it does not yet traverse the graph
-    or accumulate gradients. Tensor.backward will handle that later.
+    Each apply call records its inputs on a separate operation instance.
+    forward computes backend storage; backward returns input gradients when
+    implemented. Tensor.backward traverses and accumulates them.
     """
 
     def __init__(self, *inputs, **params):
@@ -174,11 +171,12 @@ def autograd_engine(output: "Tensor", retain_graph=False):
 
                     
                 
-def dag_viz(output: "Tensor") -> str | None:
+def dag_viz(output: "Tensor", max_elements: int = 3) -> str | None:
     """Display the recorded autograd DAG in a notebook and return its SVG.
 
     Call before backward releases the graph, or use retain_graph=True.
     Only operations whose outputs require gradients have recorded history.
+    Tensor nodes show short value and stored-gradient previews.
     """
     from html import escape
     from .tensor import Tensor
@@ -187,6 +185,17 @@ def dag_viz(output: "Tensor") -> str | None:
         raise TypeError("dag_viz expects a Tensor.")
     if output._graph_released:
         raise RuntimeError("This graph was released; visualize before backward or retain it.")
+    if not isinstance(max_elements, int) or max_elements < 1:
+        raise ValueError("max_elements must be a positive integer.")
+
+    def preview(storage):
+        values = []
+        for index, value in enumerate(storage.flat):
+            if index == max_elements:
+                break
+            values.append(f"{float(value):.4g}")
+        suffix = ", ..." if storage.size > max_elements else ""
+        return "[" + ", ".join(values) + suffix + "]"
 
     # Visit parents before their outputs, without relying on Python recursion.
     ordered = []
@@ -238,7 +247,9 @@ def dag_viz(output: "Tensor") -> str | None:
             tensor_depth = 0
 
         tensor_id = f"t{len(seen)}"
-        label = f"T{len(seen)}  {tensor.shape}"
+        gradient = "None" if tensor.grad is None else preview(tensor.grad._storage)
+        label = (f"T{len(seen)}  {tensor.shape}",
+                 f"value: {preview(tensor._storage)}", f"grad: {gradient}")
         kind = "output" if tensor is output else "tensor"
         nodes.append((tensor_id, label, tensor_depth, kind))
         seen[id(tensor)] = (tensor_id, tensor_depth)
@@ -248,12 +259,12 @@ def dag_viz(output: "Tensor") -> str | None:
     columns = {}
     for node_id, label, depth, kind in nodes:
         columns.setdefault(depth, []).append((node_id, label, kind))
-    width = 190 * len(columns) + 40
-    height = 75 * max(map(len, columns.values())) + 40
+    width = 285 * len(columns) + 40
+    height = 84 * max(map(len, columns.values())) + 40
     positions = {}
     for depth, column in columns.items():
         for row, (node_id, _, _) in enumerate(column):
-            positions[node_id] = (20 + 190 * depth, 20 + 75 * row)
+            positions[node_id] = (20 + 285 * depth, 20 + 84 * row)
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
@@ -263,17 +274,23 @@ def dag_viz(output: "Tensor") -> str | None:
     for source, target in edges:
         x1, y1 = positions[source]
         x2, y2 = positions[target]
-        start_x, end_x = x1 + 145, x2
+        start_x, end_x = x1 + 260, x2
         middle = (start_x + end_x) / 2
         parts.append(
-            f'<path d="M{start_x},{y1 + 20} C{middle},{y1 + 20} {middle},{y2 + 20} {end_x - 5},{y2 + 20}" '
+            f'<path d="M{start_x},{y1 + 34} C{middle},{y1 + 34} {middle},{y2 + 34} {end_x - 5},{y2 + 34}" '
             'fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrow)"/>'
         )
     colors = {"tensor": "#e0f2fe", "output": "#bbf7d0", "operation": "#ffedd5", "constant": "#f1f5f9"}
     for node_id, label, _, kind in nodes:
         x, y = positions[node_id]
-        parts.append(f'<rect x="{x}" y="{y}" width="145" height="40" rx="7" fill="{colors[kind]}" stroke="#334155"/>')
-        parts.append(f'<text x="{x + 72.5}" y="{y + 25}" text-anchor="middle" font-family="monospace" font-size="13" fill="#0f172a">{escape(label)}</text>')
+        parts.append(f'<rect x="{x}" y="{y}" width="260" height="68" rx="7" fill="{colors[kind]}" stroke="#334155"/>')
+        if isinstance(label, tuple):
+            parts.append(f'<text x="{x + 8}" y="{y + 18}" font-family="monospace" font-size="11" fill="#0f172a">')
+            for index, line in enumerate(label):
+                parts.append(f'<tspan x="{x + 8}" dy="{0 if index == 0 else 18}">{escape(line)}</tspan>')
+            parts.append('</text>')
+        else:
+            parts.append(f'<text x="{x + 130}" y="{y + 38}" text-anchor="middle" font-family="monospace" font-size="13" fill="#0f172a">{escape(label)}</text>')
     parts.append('</svg>')
     svg = ''.join(parts)
 

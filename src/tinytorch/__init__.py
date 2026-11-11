@@ -1,3 +1,5 @@
 from .tensor import Tensor
 
-__all__ = ["Tensor"]
+inf = float("inf")
+
+__all__ = ["Tensor", "inf"]

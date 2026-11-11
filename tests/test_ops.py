@@ -29,19 +29,27 @@ def test_scalar_results_and_operand_order():
     assert output.numpy() == 11
 
 
-@pytest.mark.parametrize("operation, numpy_op", [
-    (Add, np.add), (Sub, np.subtract), (Mul, np.multiply), (Div, np.divide),
-])
-def test_python_scalar_promotion_matches_installed_numpy(operation, numpy_op):
+@pytest.mark.parametrize("operation", [Add, Sub, Mul, Div])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_python_scalar_uses_tensor_dtype(operation, reverse):
     x = Tensor(2)
-    expected = np.asarray(numpy_op(x._storage, 2))
-    if expected.dtype == np.dtype(np.float32):
-        result = operation.apply(x, 2)
-        np.testing.assert_array_equal(result.numpy(), expected)
-        assert result.shape == ()
-    else:
-        with pytest.raises(NotImplementedError, match="Unsupported storage dtype"):
-            operation.apply(x, 2)
+    operands = (2, x) if reverse else (x, 2)
+    result = operation.apply(*operands)
+    assert result.shape == ()
+    assert result.dtype == "float32"
+
+
+@pytest.mark.parametrize("operation", [Add, Sub, Mul, Div])
+def test_numpy_scalar_must_match_tensor_dtype(operation):
+    assert operation.apply(Tensor(2), np.float32(2)).dtype == "float32"
+    with pytest.raises(TypeError, match="NumPy scalar dtype"):
+        operation.apply(Tensor(2), np.float64(2))
+
+
+@pytest.mark.parametrize("operation", [Add, Sub, Mul, Div])
+def test_python_scalar_overflow_is_rejected(operation):
+    with pytest.raises(OverflowError, match="outside the range"):
+        operation.apply(Tensor(2), 1e100)
 
 
 def test_views_and_copies():

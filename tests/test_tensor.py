@@ -8,6 +8,16 @@ import pytest
 from tinytorch import Tensor
 
 
+def test_public_infinity_constant():
+    from tinytorch import inf
+
+    tensor = Tensor([inf, -inf])
+    assert tensor.dtype == "float32"
+    assert np.isposinf(tensor.numpy()[0])
+    assert np.isneginf(tensor.numpy()[1])
+    assert np.isposinf((Tensor(1) + inf).numpy())
+
+
 class TestConstruction:
     @pytest.mark.parametrize(
         "data",

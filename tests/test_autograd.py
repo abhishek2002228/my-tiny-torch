@@ -89,7 +89,25 @@ def test_dag_viz_handles_deep_shared_graph_without_recursion():
     assert svg.startswith("<svg ")
     assert svg.count(">Mul</text>") == 1
     assert svg.count(">Add</text>") == 1200
-    assert svg.count(">T0  ()</text>") == 1
+    assert svg.count(">T0  ()</tspan>") == 1
+
+
+def test_dag_viz_shows_values_and_stored_gradients():
+    x = Tensor([1, 2], requires_grad=True)
+    squared = x * x
+    squared.retain_grad()
+    loss = squared.sum()
+
+    before = loss.dag_viz()
+    assert "value: [1, 2]" in before
+    assert "grad: None" in before
+
+    loss.backward(retain_graph=True)
+    after = loss.dag_viz()
+    assert "grad: [2, 4]" in after  # leaf x
+    assert "grad: [1, 1]" in after  # retained intermediate
+    assert "value: [5]" in after  # scalar loss
+    assert "value: [1, 2, ...]" not in after
 
 
 def test_graph_connections_are_retained_through_a_chain():
@@ -139,7 +157,7 @@ def test_arithmetic_does_not_accept_construction_inputs(value):
         Tensor([1, 2]) + value
 
 
-def test_numpy_promotion_is_not_silently_cast_back():
+def test_explicit_float64_scalar_is_rejected():
     x = Tensor([1, 2])
-    with pytest.raises(NotImplementedError, match="Unsupported storage dtype"):
+    with pytest.raises(TypeError, match="NumPy scalar dtype"):
         x + np.float64(1e100)

@@ -1,129 +1,52 @@
 # My TinyTorch
 
-A Python tensor library built from scratch, inspired by [TinyTorch](https://mlsysbook.ai/tinytorch).
+A small tensor library inspired by [TinyGrad](https://github.com/tinygrad/tinygrad). It currently runs eagerly on the CPU with NumPy. Tensor API and autograd are implemented. GPU execution, lazy execution, and training components are planned.
 
-NOTE: THIS IS A WORK IN PROGRESS.
+## Install
 
-The current API supports eager CPU float32 tensors, arithmetic, matrix multiplication,
-indexing, shared views, copies, stacking, and reductions. Operations can record their
-input connections, but **backward calculations and GPU execution are not implemented**.
+Requires Python 3.10 or later.
 
-## Quick setup for notebooks and development
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+```
 
-From the downloaded or cloned repository, run with Python 3.10 or later:
+You can also install the published repository into another environment with `python -m pip install "git+https://github.com/abhishek2002228/my-tiny-torch.git"`.
+
+## Use
+
+```python
+from tinytorch import Tensor
+
+x = Tensor([1.0, 2.0, 3.0], requires_grad=True)
+loss = (x * x).sum()
+loss.backward()
+
+print(loss.numpy())   # 14.0
+print(x.grad.numpy()) # [2. 4. 6.]
+```
+
+`backward()` takes a scalar Tensor. It stores gradients on leaf inputs and releases the graph by default. See the [Tensor API](docs/tensors.md) for operations, storage sharing, broadcasting, and gradient rules.
+
+Run `python examples/tensor_basics.py` for another example.
+
+## Notebooks
 
 ```bash
 python3 setup_env.py
 ```
 
-This creates `.venv` if needed, installs the library in editable mode with test,
-build, notebook-kernel, and PyTorch dependencies, and registers **My Tiny Torch (.venv)**
-in your user Jupyter kernel directory, pointing to this checkout's `.venv`. An internet connection is needed to download missing dependencies.
-Setup verifies that both `tinytorch` and `torch` import and run in that environment.
-Both playgrounds use the same kernel; no notebook `%pip install` cells are needed.
-PyTorch is part of the optional notebook extra, not the core Tensor library dependency.
-You can rerun setup after pulling dependency changes to reuse the environment.
+This creates or reuses `.venv`, installs editable library and notebook dependencies, and registers the **My Tiny Torch (.venv)** Jupyter kernel. Open [my_tiny_torch_playground.ipynb](examples/my_tiny_torch_playground.ipynb) and select that kernel if prompted. Restart the kernel after changing library code. Rerun setup after moving the repository or recreating `.venv`.
 
-Open `examples/my_tiny_torch_playground.ipynb`. Its metadata references the
-`my-tiny-torch` kernel. If VS Code asks you to select a kernel, choose
-**Select Another Kernel → Jupyter Kernel → My Tiny Torch (.venv)**.
-If VS Code was already open during setup, run **Developer: Reload Window** to
-refresh discovery. Automatic kernel selection depends on the editor; a one-time
-selection may still be required.
+## Test
 
-Run setup on the same machine where your notebook kernel runs. Rerun setup after
-moving the checkout or recreating `.venv`: the kernel registration contains its
-absolute interpreter path. Running setup from another checkout updates the same
-user kernel name to that checkout. The `.venv` and user registration are local
-setup artifacts, not files to commit.
-
-## Install and use
-
-Requires Python 3.10 or later. From a clone of this repository:
+Run tests in the main `.venv` environment created by `python3 setup_env.py`:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
+.venv/bin/python -m pytest -q
 ```
 
-Or install directly from GitHub into your chosen environment:
+## Project status
 
-```bash
-python -m pip install "git+https://github.com/abhishek2002228/my-tiny-torch.git"
-```
-
-The distribution is named `my-tiny-torch`; the Python import is `tinytorch`.
-Use an environment without the original TinyTorch tutorial package, which has
-that same import name. Once installed, imports work outside the repository too:
-
-```python
-from tinytorch import Tensor
-
-x = Tensor([[1, 2, 3], [4, 5, 6]])
-bias = Tensor([10, 20, 30])
-y = x + bias
-
-print(y.numpy())                  # [[11. 22. 33.], [14. 25. 36.]]
-print(y.mean(axis=1).numpy())     # [22. 25.]
-print(x.transpose(0, 1).numpy())  # [[1. 4.], [2. 5.], [3. 6.]]
-print(x.shape, x.dtype, x.device) # (2, 3) float32 cpu
-```
-
-Run a complete example with `python examples/tensor_basics.py` after installation.
-The GitHub install command installs the version committed and pushed there.
-
-## Tensor API
-
-| API | Behavior |
-| --- | --- |
-| `Tensor(data, dtype="float32", device="cpu", requires_grad=False)` | Copy and convert input into independent contiguous storage; start fresh history |
-| `shape`, `ndim`, `dtype`, `device`, `strides` | Read metadata; dtype is a string and strides are in bytes |
-| `numel()`, `is_contiguous()` | Inspect logical size and row-major contiguity |
-| `+`, `-`, `*`, `/` | Elementwise Tensor/scalar arithmetic with NumPy broadcasting |
-| `@` | Tensor matrix multiplication, including batches and vector dot products |
-| `x[key]` | NumPy indexing: basic slices share storage, advanced indexing copies |
-| `transpose(a, b)`, `permute(*axes)` | Reorder axes while sharing storage |
-| `view(*shape)` | Change shape without copying or raise |
-| `reshape(*shape)` | Share storage if possible; copy if necessary |
-| `expand(*shape)` | Broadcast a shared read-only view |
-| `clone()` | Copy values into independent storage |
-| `contiguous()` | Return self if contiguous, otherwise pack a row-major copy |
-| `Tensor.stack(tensors, axis=0)` | Stack into new storage, retaining operation history when requested |
-| `sum`, `mean`, `max` | Reduce with `axis=None` and `keepdims=False` defaults; max returns values |
-| `numpy()` | Export an independent NumPy copy |
-
-## Development
-
-Use an editable install so edits under `src` are picked up by new Python sessions:
-
-```bash
-python -m pip install -e '.[dev]'
-python -m pytest -q
-python -m build
-```
-
-For notebooks, also install the optional kernel dependency:
-
-```bash
-python -m pip install -e '.[dev,notebook]'
-```
-
-In VS Code select **this repository's `.venv/bin/python`** as the notebook kernel.
-Restart the kernel after changing imported library code. No `sys.path` edits are needed.
-
-### Verification
-
-- `tests/test_tensor.py`: public results, shapes, errors, construction, and storage contracts.
-- `tests/test_ops.py`: direct operations, scalar normalization, and view behavior.
-- `tests/test_backends.py`: backend selection and dispatch without extra copying.
-- `tests/test_numpy_backend.py`: CPU creation, validation, metadata, and exports.
-- `tests/test_autograd.py`: public API dispatch and graph connections, not derivative correctness.
-
-GitHub Actions runs the suite, builds a source distribution and wheel, and installs
-that wheel into a separate environment to run the public example outside the checkout.
-
-## Explore
-
-- [Tensor basics and contracts](docs/tensors.md)
-- [My TinyTorch playground](examples/my_tiny_torch_playground.ipynb)
+See [TODO.md](TODO.md) for the path toward layers, training a small language model, a GPU backend, and lazy execution.

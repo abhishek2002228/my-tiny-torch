@@ -1,8 +1,8 @@
 """Operations shared by Tensor's public methods.
 
 Function.apply selects self.backend using the input device before calling
-forward. Each operation delegates numerical work to that backend and can later
-provide its own backward calculation. Shape/axis/key settings are keyword
+forward. Each operation delegates numerical work to that backend and provides
+its backward calculation. Shape/axis/key settings are keyword
 arguments to apply. Every forward returns backend storage without rewrapping it.
 """
 

@@ -71,16 +71,28 @@ class NumPyBackend:
         """
         return storage.copy(order="C") if copy else storage
 
+    def _arithmetic_operands(self, lhs, rhs):
+        """Match Python scalar operands to the array dtype before arithmetic."""
+        if isinstance(lhs, np.ndarray) and not isinstance(rhs, np.ndarray):
+            rhs = self.scalar_like(rhs, lhs)
+        elif isinstance(rhs, np.ndarray) and not isinstance(lhs, np.ndarray):
+            lhs = self.scalar_like(lhs, rhs)
+        return lhs, rhs
+
     def add(self, lhs, rhs):
+        lhs, rhs = self._arithmetic_operands(lhs, rhs)
         return np.asarray(lhs + rhs)
 
     def sub(self, lhs, rhs):
+        lhs, rhs = self._arithmetic_operands(lhs, rhs)
         return np.asarray(lhs - rhs)
 
     def mul(self, lhs, rhs):
+        lhs, rhs = self._arithmetic_operands(lhs, rhs)
         return np.asarray(lhs * rhs)
 
     def div(self, lhs, rhs):
+        lhs, rhs = self._arithmetic_operands(lhs, rhs)
         return np.asarray(lhs / rhs)
 
     def matmul(self, lhs, rhs):
@@ -152,7 +164,17 @@ class NumPyBackend:
         return np.zeros_like(array)
 
     def scalar_like(self, value, array):
-        """Represent a Python scalar in a tensor operand's storage dtype."""
+        """Convert Python scalars; require typed NumPy scalars to match the array."""
+        if isinstance(value, np.generic):
+            if value.dtype != array.dtype:
+                raise TypeError(
+                    f"NumPy scalar dtype {value.dtype} does not match tensor dtype {array.dtype}."
+                )
+            return np.asarray(value)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            # A finite Python value becoming infinity is an overflow, not rounding.
+            if (isinstance(value, int) or np.isfinite(value)) and abs(value) > float(np.finfo(array.dtype).max):
+                raise OverflowError(f"Scalar {value} is outside the range of {array.dtype}.")
         return np.asarray(value, dtype=array.dtype)
 
     def broadcast_reduced_grad(self, grad, shape, *, axis=None, keepdims=False):
@@ -180,7 +202,7 @@ class NumPyBackend:
         maxima = self.broadcast_reduced_grad(
             maxima, array.shape, axis=axis, keepdims=keepdims
         )
-        mask = array == maxima
+        mask = np.asarray(array == maxima)
         counts = self.sum(mask, axis=axis, keepdims=True).astype(array.dtype, copy=False)
         expanded = self.broadcast_reduced_grad(
             grad, array.shape, axis=axis, keepdims=keepdims

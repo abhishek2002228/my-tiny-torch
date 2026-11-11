@@ -282,10 +282,10 @@ class Tensor:
         from .autograd import autograd_engine
         autograd_engine(self, retain_graph=retain_graph)
 
-    def dag_viz(self) -> str | None:
-        """Display the graph in a notebook; return SVG text outside IPython."""
+    def dag_viz(self, max_elements: int = 3) -> str | None:
+        """Display graph nodes with short value and gradient previews."""
         from .autograd import dag_viz
-        return dag_viz(self)
+        return dag_viz(self, max_elements=max_elements)
 
     def retain_grad(self):
         """Retain the gradient of this tensor after backward pass."""
