@@ -1,4 +1,4 @@
-# My TinyTorch
+# TinyTorch
 
 A small tensor library inspired by [TinyGrad](https://github.com/tinygrad/tinygrad). It currently runs eagerly on the CPU with NumPy. Tensor API and autograd are implemented. GPU execution, lazy execution, and training components are planned.
 
