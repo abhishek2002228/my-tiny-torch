@@ -79,6 +79,39 @@ def test_retain_grad_does_not_stop_propagation():
     assert_grad(x, [12, 16, 20])
 
 
+def test_gradients_for_retained_tensors_in_branched_graph():
+    x = Tensor([1.0, 2.0], requires_grad=True)
+    bias = Tensor([0.5], requires_grad=True)
+    scale = Tensor([2.0, 3.0], requires_grad=True)
+    divisor = Tensor([4.0, 5.0], requires_grad=True)
+
+    squared = x * x
+    squared.retain_grad()
+    shifted = squared + bias
+    shifted.retain_grad()
+    scaled = shifted * scale
+    scaled.retain_grad()
+    divided = scaled / divisor
+    divided.retain_grad()
+    output = divided + squared
+    output.retain_grad()
+    loss = output.sum()
+    loss.retain_grad()
+
+    loss.backward()
+
+    assert_grad(x, [3.0, 6.4])
+    assert_grad(bias, [1.1])
+    assert_grad(scale, [0.375, 0.9])
+    assert_grad(divisor, [-0.1875, -0.54])
+    assert_grad(squared, [1.5, 1.6])
+    assert_grad(shifted, [0.5, 0.6])
+    assert_grad(scaled, [0.25, 0.2])
+    assert_grad(divided, [1.0, 1.0])
+    assert_grad(output, [1.0, 1.0])
+    assert_grad(loss, np.array(1, dtype=np.float32))
+
+
 @pytest.mark.parametrize("expression,expected", [
     (lambda x: x + 2, [1, 1, 1]),
     (lambda x: 2 + x, [1, 1, 1]),
