@@ -3,7 +3,7 @@
 
 - Optimize tinytorch
     - optimize the numpy backend allocations to improve memory usage. 
-    - Look at [READINGS.md](READING.md) to evaluate
+    - Look at [READINGS.md](READINGS.md) to evaluate
 - Add activation functions and neural network layers with working backward rules.
 - Add loss functions, optimizers so parameters can be trained.
 - Add datasets and a DataLoader for batching training data.
